@@ -7,15 +7,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   AuiIf,
   ThreadListItemMorePrimitive,
   ThreadListItemPrimitive,
   ThreadListPrimitive,
+  useAui,
 } from "@assistant-ui/react";
-import { ArchiveIcon, MoreHorizontalIcon, PlusIcon, Trash2Icon } from "lucide-react";
-import { type FC, useState } from "react";
+import { useAuiState } from "@assistant-ui/store";
+import { ArchiveIcon, MoreHorizontalIcon, Pencil, PlusIcon, Trash2Icon } from "lucide-react";
+import { type FC, useRef, useState } from "react";
 
 export const ThreadList: FC = () => {
   return (
@@ -76,7 +79,8 @@ const ThreadListItem: FC = () => {
 };
 
 const ThreadListItemMore: FC = () => {
-  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [renameOpen, setRenameOpen] = useState(false);
 
   return (
     <>
@@ -96,6 +100,13 @@ const ThreadListItemMore: FC = () => {
           align="start"
           className="aui-thread-list-item-more-content z-50 min-w-32 overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
         >
+          <ThreadListItemMorePrimitive.Item
+            className="aui-thread-list-item-more-item flex cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
+            onClick={() => setRenameOpen(true)}
+          >
+            <Pencil className="size-4" />
+            Rename
+          </ThreadListItemMorePrimitive.Item>
           <ThreadListItemPrimitive.Archive asChild>
             <ThreadListItemMorePrimitive.Item className="aui-thread-list-item-more-item flex cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground">
               <ArchiveIcon className="size-4" />
@@ -104,7 +115,7 @@ const ThreadListItemMore: FC = () => {
           </ThreadListItemPrimitive.Archive>
           <ThreadListItemMorePrimitive.Item
             className="aui-thread-list-item-more-item flex cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-destructive/10 hover:text-destructive focus:bg-destructive/10 focus:text-destructive"
-            onClick={() => setConfirmOpen(true)}
+            onClick={() => setDeleteConfirmOpen(true)}
           >
             <Trash2Icon className="size-4" />
             Delete
@@ -112,7 +123,9 @@ const ThreadListItemMore: FC = () => {
         </ThreadListItemMorePrimitive.Content>
       </ThreadListItemMorePrimitive.Root>
 
-      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+      <ThreadRenameDialog open={renameOpen} onOpenChange={setRenameOpen} />
+
+      <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>Delete thread?</DialogTitle>
@@ -122,13 +135,13 @@ const ThreadListItemMore: FC = () => {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-0">
-            <Button variant="outline" onClick={() => setConfirmOpen(false)}>
+            <Button variant="outline" onClick={() => setDeleteConfirmOpen(false)}>
               Cancel
             </Button>
             <ThreadListItemPrimitive.Delete asChild>
               <Button
                 variant="destructive"
-                onClick={() => setConfirmOpen(false)}
+                onClick={() => setDeleteConfirmOpen(false)}
               >
                 Delete
               </Button>
@@ -137,5 +150,62 @@ const ThreadListItemMore: FC = () => {
         </DialogContent>
       </Dialog>
     </>
+  );
+};
+
+const ThreadRenameDialog: FC<{
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}> = ({ open, onOpenChange }) => {
+  const aui = useAui();
+  const currentTitle = useAuiState((s) => s.threadListItem.title ?? "");
+  const [value, setValue] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (nextOpen) {
+      setValue(currentTitle);
+    }
+    onOpenChange(nextOpen);
+  };
+
+  const handleSubmit = async () => {
+    const trimmed = value.trim();
+    if (trimmed && trimmed !== currentTitle) {
+      await aui.threadListItem().rename(trimmed);
+    }
+    onOpenChange(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Rename thread</DialogTitle>
+          <DialogDescription>
+            Enter a new name for this thread.
+          </DialogDescription>
+        </DialogHeader>
+        <Input
+          ref={inputRef}
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") handleSubmit();
+            if (e.key === "Escape") onOpenChange(false);
+          }}
+          autoFocus
+          placeholder="Thread name"
+        />
+        <DialogFooter className="gap-2 sm:gap-0">
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button onClick={handleSubmit} disabled={!value.trim()}>
+            Rename
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 };
