@@ -1,4 +1,12 @@
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   AuiIf,
@@ -6,8 +14,8 @@ import {
   ThreadListItemPrimitive,
   ThreadListPrimitive,
 } from "@assistant-ui/react";
-import { ArchiveIcon, MoreHorizontalIcon, PlusIcon } from "lucide-react";
-import type { FC } from "react";
+import { ArchiveIcon, MoreHorizontalIcon, PlusIcon, Trash2Icon } from "lucide-react";
+import { type FC, useState } from "react";
 
 export const ThreadList: FC = () => {
   return (
@@ -68,30 +76,66 @@ const ThreadListItem: FC = () => {
 };
 
 const ThreadListItemMore: FC = () => {
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
   return (
-    <ThreadListItemMorePrimitive.Root>
-      <ThreadListItemMorePrimitive.Trigger asChild>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="aui-thread-list-item-more mr-2 size-7 p-0 opacity-0 transition-opacity group-hover:opacity-100 data-[state=open]:bg-accent data-[state=open]:opacity-100 group-data-active:opacity-100"
+    <>
+      <ThreadListItemMorePrimitive.Root>
+        <ThreadListItemMorePrimitive.Trigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="aui-thread-list-item-more mr-2 size-7 p-0 opacity-0 transition-opacity group-hover:opacity-100 data-[state=open]:bg-accent data-[state=open]:opacity-100 group-data-active:opacity-100"
+          >
+            <MoreHorizontalIcon className="size-4" />
+            <span className="sr-only">More options</span>
+          </Button>
+        </ThreadListItemMorePrimitive.Trigger>
+        <ThreadListItemMorePrimitive.Content
+          side="bottom"
+          align="start"
+          className="aui-thread-list-item-more-content z-50 min-w-32 overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
         >
-          <MoreHorizontalIcon className="size-4" />
-          <span className="sr-only">More options</span>
-        </Button>
-      </ThreadListItemMorePrimitive.Trigger>
-      <ThreadListItemMorePrimitive.Content
-        side="bottom"
-        align="start"
-        className="aui-thread-list-item-more-content z-50 min-w-32 overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
-      >
-        <ThreadListItemPrimitive.Archive asChild>
-          <ThreadListItemMorePrimitive.Item className="aui-thread-list-item-more-item flex cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground">
-            <ArchiveIcon className="size-4" />
-            Archive
+          <ThreadListItemPrimitive.Archive asChild>
+            <ThreadListItemMorePrimitive.Item className="aui-thread-list-item-more-item flex cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground">
+              <ArchiveIcon className="size-4" />
+              Archive
+            </ThreadListItemMorePrimitive.Item>
+          </ThreadListItemPrimitive.Archive>
+          <ThreadListItemMorePrimitive.Item
+            className="aui-thread-list-item-more-item flex cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-destructive/10 hover:text-destructive focus:bg-destructive/10 focus:text-destructive"
+            onClick={() => setConfirmOpen(true)}
+          >
+            <Trash2Icon className="size-4" />
+            Delete
           </ThreadListItemMorePrimitive.Item>
-        </ThreadListItemPrimitive.Archive>
-      </ThreadListItemMorePrimitive.Content>
-    </ThreadListItemMorePrimitive.Root>
+        </ThreadListItemMorePrimitive.Content>
+      </ThreadListItemMorePrimitive.Root>
+
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Delete thread?</DialogTitle>
+            <DialogDescription>
+              This action cannot be undone. The thread and all its messages will
+              be permanently deleted.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setConfirmOpen(false)}>
+              Cancel
+            </Button>
+            <ThreadListItemPrimitive.Delete asChild>
+              <Button
+                variant="destructive"
+                onClick={() => setConfirmOpen(false)}
+              >
+                Delete
+              </Button>
+            </ThreadListItemPrimitive.Delete>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
