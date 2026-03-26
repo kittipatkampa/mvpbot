@@ -7,13 +7,9 @@ Feature backlog for mvpbot.
 - [ ] Support multi-user signin
 - [ ] The bottom of the left menu panel should be about user and settings
 
-## Bugs
-
-- [ ] 
-
 ## Improvements
 
-- [/] Test Langfuse on a new branch 
-- [ ] Test arize/phoenix on a new branch 
-- [ ] Test logfire on a new branch 
-- [ ] How does thread work here? Who assign thread_id?
+- [x] Add Langfuse observability branch (`example/langfuse`)
+- [x] Add Arize/Phoenix observability branch (`example/arize-phoenix`)
+- [x] Add Logfire observability branch (`example/logfire`)
+- [ ] How does thread work here? Who assigns thread_id?
