@@ -15,6 +15,7 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 from assistant_service import db
 from assistant_service.config import settings
 from assistant_service.graph import get_graph
+from assistant_service.observability import init_phoenix
 from assistant_service.models import (
     ChatRequest,
     MessageOut,
@@ -53,6 +54,7 @@ def _extract_blocks(chunk: Any) -> list[dict[str, Any]]:
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     await db.init_db()
+    init_phoenix()
     yield
 
 

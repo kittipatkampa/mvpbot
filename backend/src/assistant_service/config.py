@@ -15,5 +15,11 @@ class Settings(BaseSettings):
     thinking_budget_tokens: int = 10_000
     max_tokens: int = 16_000
 
+    # Arize Phoenix observability — leave empty to disable tracing
+    # Self-hosted: run `python -m phoenix.server.main` and set the endpoint below
+    # Cloud: set both endpoint and api_key from https://app.phoenix.arize.com
+    phoenix_collector_endpoint: str = ""
+    phoenix_api_key: str = ""
+
 
 settings = Settings()
