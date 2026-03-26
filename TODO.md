@@ -13,3 +13,4 @@ Feature backlog for mvpbot.
 - [x] Add Arize/Phoenix observability branch (`example/arize-phoenix`)
 - [x] Add Logfire observability branch (`example/logfire`)
 - [ ] How does thread work here? Who assigns thread_id?
+- [ ] Add Openrouter support branch (`example/openrouter`) so that user can select many models from the dropdown menu in the UI in the input console.
