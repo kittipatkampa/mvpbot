@@ -15,5 +15,10 @@ class Settings(BaseSettings):
     thinking_budget_tokens: int = 10_000
     max_tokens: int = 16_000
 
+    # Langfuse observability — leave empty to disable tracing
+    langfuse_public_key: str = ""
+    langfuse_secret_key: str = ""
+    langfuse_host: str = "https://us.cloud.langfuse.com"
+
 
 settings = Settings()
