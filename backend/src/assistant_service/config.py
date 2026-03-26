@@ -15,5 +15,8 @@ class Settings(BaseSettings):
     thinking_budget_tokens: int = 10_000
     max_tokens: int = 16_000
 
+    # Logfire observability — leave empty to disable tracing
+    logfire_token: str = ""
+
 
 settings = Settings()
