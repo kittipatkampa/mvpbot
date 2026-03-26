@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Github, MessagesSquare } from "lucide-react";
+import { Github, MessagesSquare, Search } from "lucide-react";
 import Link from "next/link";
 import {
   Sidebar,
@@ -47,12 +47,15 @@ export function ThreadListSidebar({
             </SidebarMenuItem>
           </SidebarMenu>
           {onSearchChange && (
-            <Input
-              placeholder="Search threads…"
-              value={search}
-              onChange={(e) => onSearchChange(e.target.value)}
-              className="h-9 bg-background"
-            />
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search chats…"
+                value={search}
+                onChange={(e) => onSearchChange(e.target.value)}
+                className="h-9 bg-background pl-8"
+              />
+            </div>
           )}
         </div>
       </SidebarHeader>
@@ -65,7 +68,7 @@ export function ThreadListSidebar({
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
               <Link
-                href="https://github.com/assistant-ui/assistant-ui"
+                href="https://github.com/kittipatkampa/mvpbot"
                 target="_blank"
                 rel="noopener noreferrer"
               >

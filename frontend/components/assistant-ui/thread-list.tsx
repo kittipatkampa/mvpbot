@@ -44,7 +44,7 @@ const ThreadListNew: FC = () => {
         className="aui-thread-list-new h-9 justify-start gap-2 rounded-lg px-3 text-sm hover:bg-muted data-active:bg-muted"
       >
         <PlusIcon className="size-4" />
-        New Thread
+        New chat
       </Button>
     </ThreadListPrimitive.New>
   );
