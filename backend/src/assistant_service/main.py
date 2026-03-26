@@ -15,6 +15,7 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 from assistant_service import db
 from assistant_service.config import settings
 from assistant_service.graph import get_graph
+from assistant_service.observability import get_langfuse_handler, init_langfuse
 from assistant_service.models import (
     ChatRequest,
     MessageOut,
@@ -53,6 +54,7 @@ def _extract_blocks(chunk: Any) -> list[dict[str, Any]]:
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     await db.init_db()
+    init_langfuse()
     yield
 
 
@@ -176,11 +178,15 @@ async def _sse_chat(body: ChatRequest):
     full_reasoning = ""
     full_text = ""
 
+    langfuse_handler, lf_metadata = get_langfuse_handler(session_id=body.thread_id)
+    callbacks = [langfuse_handler] if langfuse_handler else []
+
     try:
         # stream_mode="messages" yields (AIMessageChunk | AIMessage, metadata dict)
         async for msg_chunk, _metadata in graph.astream(
             {"messages": lc_messages, "intent": ""},
             stream_mode="messages",
+            config={"callbacks": callbacks, "metadata": lf_metadata},
         ):
             for block in _extract_blocks(msg_chunk):
                 btype = block.get("type")

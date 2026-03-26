@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from unittest.mock import MagicMock
 
 import pytest
 from httpx import AsyncClient
@@ -169,3 +170,89 @@ async def test_chat_requires_api_key(client: AsyncClient, monkeypatch: pytest.Mo
     r = await client.post("/api/chat", json={"thread_id": tid, "message": "hi"})
     assert r.status_code == 200
     assert "error" in r.text
+
+
+class FakeCompiledGraphCapturingConfig:
+    """Fake graph that records the config passed to astream()."""
+
+    def __init__(self, chunks: list):
+        self._chunks = chunks
+        self.last_config: dict | None = None
+
+    async def astream(self, *args, **kwargs):
+        self.last_config = kwargs.get("config")
+        for c in self._chunks:
+            yield c
+
+
+@pytest.mark.asyncio
+async def test_chat_passes_langfuse_callbacks_to_graph(
+    client: AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+    patch_graph,
+):
+    """When Langfuse is configured, the handler is passed to graph.astream() callbacks."""
+    monkeypatch.setattr(settings, "anthropic_api_key", "test-key")
+
+    mock_handler = MagicMock()
+    monkeypatch.setattr(
+        "assistant_service.main.get_langfuse_handler",
+        lambda session_id=None, user_id=None: (mock_handler, {"langfuse_session_id": session_id}),
+    )
+
+    tid = await db.create_thread()
+    fake = FakeCompiledGraphCapturingConfig(
+        [
+            (
+                AIMessageChunk(
+                    content="",
+                    content_blocks=[{"type": "text", "text": "hi"}],
+                ),
+                {"langgraph_node": "general_agent"},
+            ),
+        ]
+    )
+    patch_graph(fake)
+
+    r = await client.post("/api/chat", json={"thread_id": tid, "message": "hello"})
+    assert r.status_code == 200
+
+    assert fake.last_config is not None, "graph.astream() was not called with a config"
+    callbacks = fake.last_config.get("callbacks", [])
+    assert mock_handler in callbacks, "Langfuse handler was not in the callbacks list"
+    assert fake.last_config.get("metadata", {}).get("langfuse_session_id") == tid
+
+
+@pytest.mark.asyncio
+async def test_chat_omits_callbacks_when_langfuse_not_configured(
+    client: AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+    patch_graph,
+):
+    """When Langfuse is not configured, callbacks list is empty."""
+    monkeypatch.setattr(settings, "anthropic_api_key", "test-key")
+    monkeypatch.setattr(
+        "assistant_service.main.get_langfuse_handler",
+        lambda session_id=None, user_id=None: (None, {}),
+    )
+
+    tid = await db.create_thread()
+    fake = FakeCompiledGraphCapturingConfig(
+        [
+            (
+                AIMessageChunk(
+                    content="",
+                    content_blocks=[{"type": "text", "text": "ok"}],
+                ),
+                {"langgraph_node": "general_agent"},
+            ),
+        ]
+    )
+    patch_graph(fake)
+
+    r = await client.post("/api/chat", json={"thread_id": tid, "message": "hello"})
+    assert r.status_code == 200
+
+    assert fake.last_config is not None
+    callbacks = fake.last_config.get("callbacks", [])
+    assert callbacks == [], f"Expected empty callbacks, got {callbacks}"
