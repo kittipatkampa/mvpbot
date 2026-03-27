@@ -83,6 +83,74 @@ Each line is `data: <json>`:
 - `{"type": "done"}` — stream finished
 - `{"type": "error", "message": "..."}` — error
 
+## Observability (Arize Phoenix)
+
+All LangChain and LangGraph calls are automatically traced via [OpenTelemetry](https://opentelemetry.io/) using the [Arize Phoenix](https://phoenix.arize.com/) integration. Tracing is **opt-in**: if `PHOENIX_COLLECTOR_ENDPOINT` is not set, the app starts normally with no tracing overhead.
+
+### Option A — Arize Phoenix Cloud
+
+1. Sign up at [app.phoenix.arize.com](https://app.phoenix.arize.com) and create a space.
+2. Go to **Settings → API Keys** and generate a key.
+3. In `backend/.env` set:
+
+```env
+PHOENIX_COLLECTOR_ENDPOINT=https://app.phoenix.arize.com/s/<your-space-name>/v1/traces
+PHOENIX_API_KEY=<your-api-key>
+```
+
+### Option B — Self-hosted Phoenix
+
+1. Install Phoenix (already included as a dev dependency via `arize-phoenix-otel`):
+
+```bash
+pip install arize-phoenix          # or: uv add arize-phoenix
+python -m phoenix.server.main      # starts the UI at http://localhost:6006
+```
+
+2. In `backend/.env` set (leave `PHOENIX_API_KEY` empty):
+
+```env
+PHOENIX_COLLECTOR_ENDPOINT=http://localhost:6006/v1/traces
+```
+
+### How it works
+
+`init_phoenix()` in `backend/src/assistant_service/observability.py` is called once during FastAPI startup (the `lifespan` handler in `main.py`). It:
+
+- Registers an OpenTelemetry `TracerProvider` pointing at `PHOENIX_COLLECTOR_ENDPOINT`.
+- Instruments LangChain/LangGraph automatically via `LangChainInstrumentor` — no callbacks or manual span creation needed.
+- Uses `BatchSpanProcessor` so tracing is non-blocking.
+
+### Smoke test
+
+Run this from the `backend/` directory to verify Phoenix connectivity and see a real trace appear in the console:
+
+```bash
+cd backend
+uv run python -m tests.test_phoenix
+```
+
+Expected output:
+
+```
+🔭 OpenTelemetry Tracing Details 🔭
+|  Phoenix Project: default
+|  Span Processor: BatchSpanProcessor
+|  Collector Endpoint: https://app.phoenix.arize.com/s/<space>/v1/traces
+|  Transport: HTTP + protobuf
+...
+Phoenix initialized successfully
+LangChain response: Hello
+Waiting for span export...
+Done — check the Phoenix console for a new trace.
+```
+
+After the script finishes, open your Phoenix project — you should see a new trace with the classifier LLM call.
+
+### Disabling tracing
+
+Leave `PHOENIX_COLLECTOR_ENDPOINT` unset (or empty) in `.env`. `init_phoenix()` returns immediately without registering any provider.
+
 ## Behavior
 
 1. **Classifier** (`claude-haiku-4-5`) picks `math` vs `general` (see [Anthropic models](https://docs.anthropic.com/en/docs/about-claude/models/overview)).
