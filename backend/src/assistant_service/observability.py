@@ -20,4 +20,4 @@ def init_logfire() -> None:
     if not settings.logfire_token:
         return
     logfire.configure(token=settings.logfire_token)
-    logfire.instrument_langchain()
+    logfire.instrument_anthropic()
