@@ -156,6 +156,30 @@ Leave `PHOENIX_COLLECTOR_ENDPOINT` unset (or empty) in `.env`. `init_phoenix()` 
 1. **Classifier** (`claude-haiku-4-5`) picks `math` vs `general` (see [Anthropic models](https://docs.anthropic.com/en/docs/about-claude/models/overview)).
 2. **Subagents** (`claude-sonnet-4-20250514`) use Anthropic **extended thinking**; reasoning is streamed separately from the answer for the UI.
 
+## LLM Observability
+
+This repo ships a clean base with **no observability** on `main`. Use one of the `example/*` branches to add a tracing layer without touching any other code:
+
+| Branch | Tool | Self-hosted? | Free tier? | Env vars required |
+|--------|------|:---:|:---:|-------------------|
+| `main` | None (base template) | — | — | — |
+| [`example/langfuse`](../../tree/example/langfuse) | [Langfuse](https://langfuse.com) | ✅ | ✅ | `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY` |
+| [`example/logfire`](../../tree/example/logfire) | [Logfire](https://logfire.pydantic.dev) | ❌ | ✅ | `LOGFIRE_TOKEN` |
+| [`example/arize-phoenix`](../../tree/example/arize-phoenix) | [Arize Phoenix](https://phoenix.arize.com) | ✅ | ✅ | `PHOENIX_COLLECTOR_ENDPOINT` |
+
+Each branch adds exactly **one commit** on top of `main`. To see what an integration requires:
+
+```bash
+git diff main example/langfuse
+```
+
+To start from an integration branch:
+
+```bash
+git checkout example/logfire
+# Set the relevant env vars in backend/.env, then run normally
+```
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
