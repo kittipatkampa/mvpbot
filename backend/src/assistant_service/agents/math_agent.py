@@ -2,17 +2,17 @@
 
 from __future__ import annotations
 
-from langchain_anthropic import ChatAnthropic
+from langchain_openrouter import ChatOpenRouter
 
 from assistant_service.config import settings
 
 
-def build_math_llm() -> ChatAnthropic:
-    return ChatAnthropic(
+def build_math_llm() -> ChatOpenRouter:
+    return ChatOpenRouter(
         model=settings.agent_model,
-        max_tokens=settings.max_tokens,
-        thinking={"type": "enabled", "budget_tokens": settings.thinking_budget_tokens},
-        api_key=settings.anthropic_api_key or None,
+        max_tokens=settings.agent_max_tokens,
+        reasoning=settings.agent_reasoning or None,
+        api_key=settings.openrouter_api_key or None,
     )
 
 
