@@ -118,6 +118,17 @@ class ChatOpenRouterWithReasoning(BaseChatModel):
         return "openrouter-reasoning"
 
     @property
+    def _identifying_params(self) -> dict[str, Any]:
+        params: dict[str, Any] = {
+            "model": self.model_name,
+            "max_tokens": self.max_tokens,
+            "vendor": self.model_name.split("/")[0] if "/" in self.model_name else "openrouter",
+        }
+        if self.reasoning is not None:
+            params["reasoning"] = self.reasoning
+        return params
+
+    @property
     def _default_params(self) -> dict[str, Any]:
         params: dict[str, Any] = {
             "model": self.model_name,
@@ -193,6 +204,13 @@ class ChatOpenRouterWithReasoning(BaseChatModel):
                 lines = content.splitlines()
                 # Remove first line (```json or ```) and last line (```)
                 content = "\n".join(lines[1:-1]) if len(lines) > 2 else "{}"
+            # Extract only the first valid JSON object/array, ignoring any
+            # trailing text the model may append after the closing brace.
+            try:
+                obj, _ = json.JSONDecoder().raw_decode(content.strip())
+                content = json.dumps(obj)
+            except json.JSONDecodeError:
+                pass
             return pydantic_schema.model_validate_json(content)
 
         return RunnableLambda(parse)

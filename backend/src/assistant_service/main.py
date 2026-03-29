@@ -207,7 +207,14 @@ async def _sse_chat(body: ChatRequest):
     full_reasoning = ""
     full_text = ""
 
-    langfuse_handler, lf_metadata = get_langfuse_handler(session_id=body.thread_id)
+    langfuse_handler, lf_metadata = get_langfuse_handler(
+        session_id=body.thread_id,
+        model_metadata={
+            "agent_model": settings.agent_model,
+            "agent_max_tokens": settings.agent_max_tokens,
+            "classifier_model": settings.classifier_model,
+        },
+    )
     callbacks = [langfuse_handler] if langfuse_handler else []
 
     try:
