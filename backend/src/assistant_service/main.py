@@ -17,7 +17,7 @@ from assistant_service import db
 from assistant_service.config import settings
 from assistant_service.graph import get_graph
 from assistant_service.logging_config import configure_logging
-from assistant_service.observability import init_logfire
+from assistant_service.observability import chat_span, init_logfire
 from assistant_service.models import (
     ChatRequest,
     MessageOut,
@@ -82,6 +82,11 @@ async def get_user_id(x_device_id: str | None = Header(default=None)) -> str | N
     if not x_device_id:
         return None  # permissive: no header = no user scoping (legacy/dev mode)
     return await db.get_or_create_user(x_device_id)
+
+
+async def get_device_id(x_device_id: str | None = Header(default=None)) -> str | None:
+    """Return the raw X-Device-ID header value for tracing purposes."""
+    return x_device_id
 
 
 @app.get("/health")
@@ -181,7 +186,7 @@ async def get_messages(thread_id: str, user_id: str | None = Depends(get_user_id
     ]
 
 
-async def _sse_chat(body: ChatRequest, user_id: str | None = None):
+async def _sse_chat(body: ChatRequest, user_id: str | None = None, device_id: str | None = None):
     logger.info(
         "POST /api/chat thread_id=%s regenerate=%s user_id=%s",
         body.thread_id,
@@ -228,28 +233,33 @@ async def _sse_chat(body: ChatRequest, user_id: str | None = None):
     full_text = ""
 
     try:
-        # stream_mode="messages" yields (AIMessageChunk | AIMessage, metadata dict)
-        async for msg_chunk, _metadata in graph.astream(
-            {"messages": lc_messages, "intent": ""},
-            stream_mode="messages",
+        async with chat_span(
+            thread_id=body.thread_id,
+            user_id=user_id,
+            device_id=device_id,
         ):
-            for block in _extract_blocks(msg_chunk):
-                btype = block.get("type")
-                if btype == "reasoning":
-                    delta = block.get("reasoning") or ""
-                    if delta:
-                        full_reasoning += delta
-                        yield f"data: {json.dumps({'type': 'reasoning', 'content': delta})}\n\n"
-                elif btype == "text":
-                    delta = block.get("text") or ""
-                    if delta:
-                        full_text += delta
-                        yield f"data: {json.dumps({'type': 'token', 'content': delta})}\n\n"
-                elif btype == "thinking":
-                    delta = block.get("thinking") or ""
-                    if delta:
-                        full_reasoning += delta
-                        yield f"data: {json.dumps({'type': 'reasoning', 'content': delta})}\n\n"
+            # stream_mode="messages" yields (AIMessageChunk | AIMessage, metadata dict)
+            async for msg_chunk, _metadata in graph.astream(
+                {"messages": lc_messages, "intent": ""},
+                stream_mode="messages",
+            ):
+                for block in _extract_blocks(msg_chunk):
+                    btype = block.get("type")
+                    if btype == "reasoning":
+                        delta = block.get("reasoning") or ""
+                        if delta:
+                            full_reasoning += delta
+                            yield f"data: {json.dumps({'type': 'reasoning', 'content': delta})}\n\n"
+                    elif btype == "text":
+                        delta = block.get("text") or ""
+                        if delta:
+                            full_text += delta
+                            yield f"data: {json.dumps({'type': 'token', 'content': delta})}\n\n"
+                    elif btype == "thinking":
+                        delta = block.get("thinking") or ""
+                        if delta:
+                            full_reasoning += delta
+                            yield f"data: {json.dumps({'type': 'reasoning', 'content': delta})}\n\n"
 
         reasoning_to_store = full_reasoning.strip() or None
         logger.debug(
@@ -274,9 +284,13 @@ async def _sse_chat(body: ChatRequest, user_id: str | None = None):
 
 
 @app.post("/api/chat")
-async def chat(body: ChatRequest, user_id: str | None = Depends(get_user_id)):
+async def chat(
+    body: ChatRequest,
+    user_id: str | None = Depends(get_user_id),
+    device_id: str | None = Depends(get_device_id),
+):
     return StreamingResponse(
-        _sse_chat(body, user_id=user_id),
+        _sse_chat(body, user_id=user_id, device_id=device_id),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
