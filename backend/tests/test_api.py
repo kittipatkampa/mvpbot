@@ -31,7 +31,7 @@ async def test_health(client: AsyncClient):
 
 @pytest.mark.asyncio
 async def test_threads_crud(client: AsyncClient, monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(settings, "anthropic_api_key", "x")
+    monkeypatch.setattr(settings, "openrouter_api_key", "x")
 
     r = await client.post("/api/threads")
     assert r.status_code == 200
@@ -61,7 +61,7 @@ async def test_chat_sse_streams_reasoning_and_tokens(
     monkeypatch: pytest.MonkeyPatch,
     patch_graph,
 ):
-    monkeypatch.setattr(settings, "anthropic_api_key", "test-key")
+    monkeypatch.setattr(settings, "openrouter_api_key", "test-key")
 
     tid = await db.create_thread()
     fake = FakeCompiledGraph(
@@ -113,7 +113,7 @@ async def test_chat_regenerate_replaces_assistant_without_duplicate_user(
     monkeypatch: pytest.MonkeyPatch,
     patch_graph,
 ):
-    monkeypatch.setattr(settings, "anthropic_api_key", "test-key")
+    monkeypatch.setattr(settings, "openrouter_api_key", "test-key")
 
     tid = await db.create_thread()
     first = FakeCompiledGraph(
@@ -165,7 +165,7 @@ async def test_chat_regenerate_replaces_assistant_without_duplicate_user(
 
 @pytest.mark.asyncio
 async def test_chat_requires_api_key(client: AsyncClient, monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(settings, "anthropic_api_key", "")
+    monkeypatch.setattr(settings, "openrouter_api_key", "")
     tid = await db.create_thread()
     r = await client.post("/api/chat", json={"thread_id": tid, "message": "hi"})
     assert r.status_code == 200
@@ -192,7 +192,7 @@ async def test_chat_passes_langfuse_callbacks_to_graph(
     patch_graph,
 ):
     """When Langfuse is configured, the handler is passed to graph.astream() callbacks."""
-    monkeypatch.setattr(settings, "anthropic_api_key", "test-key")
+    monkeypatch.setattr(settings, "openrouter_api_key", "test-key")
 
     mock_handler = MagicMock()
     monkeypatch.setattr(
@@ -230,7 +230,7 @@ async def test_chat_omits_callbacks_when_langfuse_not_configured(
     patch_graph,
 ):
     """When Langfuse is not configured, callbacks list is empty."""
-    monkeypatch.setattr(settings, "anthropic_api_key", "test-key")
+    monkeypatch.setattr(settings, "openrouter_api_key", "test-key")
     monkeypatch.setattr(
         "assistant_service.main.get_langfuse_handler",
         lambda session_id=None, user_id=None: (None, {}),

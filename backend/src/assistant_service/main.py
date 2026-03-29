@@ -47,13 +47,18 @@ def _rows_to_messages(rows: list[dict]) -> list[BaseMessage]:
 
 
 def _extract_blocks(chunk: Any) -> list[dict[str, Any]]:
+    # Anthropic-style content_blocks (thinking / text blocks)
     if hasattr(chunk, "content_blocks") and chunk.content_blocks:
         return list(chunk.content_blocks)
-    # Fallback: plain content string
+    # OpenRouter wrapper: reasoning in additional_kwargs, content as plain string
+    blocks: list[dict[str, Any]] = []
+    reasoning = (getattr(chunk, "additional_kwargs", None) or {}).get("reasoning_content")
+    if reasoning:
+        blocks.append({"type": "reasoning", "reasoning": reasoning})
     c = getattr(chunk, "content", None)
     if c:
-        return [{"type": "text", "text": c}]
-    return []
+        blocks.append({"type": "text", "text": c})
+    return blocks
 
 
 @asynccontextmanager
@@ -164,9 +169,9 @@ async def _sse_chat(body: ChatRequest):
         "POST /api/chat thread_id=%s regenerate=%s", body.thread_id, body.regenerate
     )
 
-    if not settings.anthropic_api_key:
-        logger.error("ANTHROPIC_API_KEY is not set")
-        yield f"data: {json.dumps({'type': 'error', 'message': 'ANTHROPIC_API_KEY is not set'})}\n\n"
+    if not settings.openrouter_api_key:
+        logger.error("OPENROUTER_API_KEY is not set")
+        yield f"data: {json.dumps({'type': 'error', 'message': 'OPENROUTER_API_KEY is not set'})}\n\n"
         return
 
     if not await db.thread_exists(body.thread_id):
