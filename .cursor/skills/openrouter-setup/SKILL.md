@@ -107,6 +107,25 @@ print(response.content)
 print(response.additional_kwargs.get("reasoning_content"))  # thinking tokens
 ```
 
+### Structured output (Pydantic)
+
+`ChatOpenRouterWithReasoning.with_structured_output(schema)` returns a `Runnable`
+that forces JSON output and validates it against a Pydantic model:
+
+```python
+from pydantic import BaseModel
+
+class Answer(BaseModel):
+    answer: str
+    confidence: float
+
+chain = llm.with_structured_output(Answer)
+result: Answer = chain.invoke("What is 2+2?")
+print(result.answer, result.confidence)
+```
+
+Only Pydantic `BaseModel` subclasses are supported.
+
 ---
 
 ## 5. Reasoning / thinking tokens

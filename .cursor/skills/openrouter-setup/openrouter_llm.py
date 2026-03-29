@@ -28,15 +28,19 @@ from langchain_core.messages import (
     ToolMessage,
 )
 from langchain_core.outputs import ChatGeneration, ChatGenerationChunk, ChatResult
-from pydantic import Field, SecretStr
+from langchain_core.runnables import Runnable
+from pydantic import BaseModel, Field, SecretStr
 
 _OPENROUTER_BASE = "https://openrouter.ai/api/v1/chat/completions"
 
 
-def _messages_to_dicts(messages: list[BaseMessage]) -> list[dict[str, Any]]:
+def _messages_to_dicts(messages: list[BaseMessage | dict[str, Any]]) -> list[dict[str, Any]]:
     out = []
     for m in messages:
-        if isinstance(m, SystemMessage):
+        # Pass plain dicts through unchanged (e.g. from classifier)
+        if isinstance(m, dict):
+            out.append(m)
+        elif isinstance(m, SystemMessage):
             out.append({"role": "system", "content": m.content})
         elif isinstance(m, HumanMessage):
             out.append({"role": "user", "content": m.content})
@@ -114,6 +118,17 @@ class ChatOpenRouterWithReasoning(BaseChatModel):
         return "openrouter-reasoning"
 
     @property
+    def _identifying_params(self) -> dict[str, Any]:
+        params: dict[str, Any] = {
+            "model": self.model_name,
+            "max_tokens": self.max_tokens,
+            "vendor": self.model_name.split("/")[0] if "/" in self.model_name else "openrouter",
+        }
+        if self.reasoning is not None:
+            params["reasoning"] = self.reasoning
+        return params
+
+    @property
     def _default_params(self) -> dict[str, Any]:
         params: dict[str, Any] = {
             "model": self.model_name,
@@ -137,6 +152,68 @@ class ChatOpenRouterWithReasoning(BaseChatModel):
             "messages": _messages_to_dicts(messages),
             "stream": stream,
         }
+
+    def with_structured_output(
+        self,
+        schema: dict[str, Any] | type,
+        *,
+        include_raw: bool = False,
+        **kwargs: Any,
+    ) -> Runnable:
+        """Return a runnable that parses the model output into the given Pydantic schema.
+
+        Uses OpenRouter's JSON response format to constrain output, then parses with
+        the Pydantic model. Only supports Pydantic BaseModel subclasses.
+        """
+        if not (isinstance(schema, type) and issubclass(schema, BaseModel)):
+            raise ValueError("with_structured_output only supports Pydantic BaseModel subclasses")
+
+        pydantic_schema: type[BaseModel] = schema
+        headers = self._headers()
+        model_name = self.model_name
+        max_tokens = self.max_tokens
+
+        from langchain_core.runnables import RunnableLambda
+
+        def parse(messages: Any) -> BaseModel:
+            if isinstance(messages, str):
+                msgs: list[Any] = [HumanMessage(content=messages)]
+            elif isinstance(messages, list):
+                msgs = messages
+            else:
+                msgs = [HumanMessage(content=str(messages))]
+
+            payload: dict[str, Any] = {
+                "model": model_name,
+                "max_tokens": max_tokens,
+                "messages": _messages_to_dicts(msgs),
+                "stream": False,
+                "response_format": {"type": "json_object"},
+            }
+            resp = httpx.post(
+                _OPENROUTER_BASE,
+                headers=headers,
+                json=payload,
+                timeout=120,
+            )
+            resp.raise_for_status()
+            content = resp.json()["choices"][0]["message"].get("content") or "{}"
+            # Strip markdown code fences if the model wraps JSON in ```json ... ```
+            content = content.strip()
+            if content.startswith("```"):
+                lines = content.splitlines()
+                # Remove first line (```json or ```) and last line (```)
+                content = "\n".join(lines[1:-1]) if len(lines) > 2 else "{}"
+            # Extract only the first valid JSON object/array, ignoring any
+            # trailing text the model may append after the closing brace.
+            try:
+                obj, _ = json.JSONDecoder().raw_decode(content.strip())
+                content = json.dumps(obj)
+            except json.JSONDecodeError:
+                pass
+            return pydantic_schema.model_validate_json(content)
+
+        return RunnableLambda(parse)
 
     # ── sync non-streaming ──────────────────────────────────────────────────
 
