@@ -87,3 +87,31 @@ def test_get_langfuse_handler_includes_user_id_in_metadata():
     handler, metadata = get_langfuse_handler(user_id="user-xyz")
     assert handler is not None
     assert metadata.get("langfuse_user_id") == "user-xyz"
+
+
+def test_get_langfuse_handler_includes_device_id_in_metadata():
+    from unittest.mock import MagicMock
+
+    obs_module._langfuse_client = MagicMock()
+
+    handler, metadata = get_langfuse_handler(device_id="device-abc")
+    assert handler is not None
+    assert metadata.get("device_id") == "device-abc"
+
+
+def test_get_langfuse_handler_includes_all_trace_fields():
+    from unittest.mock import MagicMock
+
+    obs_module._langfuse_client = MagicMock()
+
+    handler, metadata = get_langfuse_handler(
+        session_id="thread-123",
+        user_id="user-456",
+        device_id="device-789",
+        model_metadata={"agent_model": "test-model"},
+    )
+    assert handler is not None
+    assert metadata["langfuse_session_id"] == "thread-123"
+    assert metadata["langfuse_user_id"] == "user-456"
+    assert metadata["device_id"] == "device-789"
+    assert metadata["agent_model"] == "test-model"

@@ -89,6 +89,11 @@ async def get_user_id(x_device_id: str | None = Header(default=None)) -> str | N
     return await db.get_or_create_user(x_device_id)
 
 
+async def get_device_id(x_device_id: str | None = Header(default=None)) -> str | None:
+    """Return the raw X-Device-ID header value for tracing purposes."""
+    return x_device_id
+
+
 @app.get("/health")
 async def health():
     return {"status": "ok"}
@@ -186,7 +191,7 @@ async def get_messages(thread_id: str, user_id: str | None = Depends(get_user_id
     ]
 
 
-async def _sse_chat(body: ChatRequest, user_id: str | None = None):
+async def _sse_chat(body: ChatRequest, user_id: str | None = None, device_id: str | None = None):
     logger.info(
         "POST /api/chat thread_id=%s regenerate=%s user_id=%s",
         body.thread_id,
@@ -234,6 +239,8 @@ async def _sse_chat(body: ChatRequest, user_id: str | None = None):
 
     langfuse_handler, lf_metadata = get_langfuse_handler(
         session_id=body.thread_id,
+        user_id=user_id,
+        device_id=device_id,
         model_metadata={
             "agent_model": settings.agent_model,
             "agent_max_tokens": settings.agent_max_tokens,
@@ -290,9 +297,13 @@ async def _sse_chat(body: ChatRequest, user_id: str | None = None):
 
 
 @app.post("/api/chat")
-async def chat(body: ChatRequest, user_id: str | None = Depends(get_user_id)):
+async def chat(
+    body: ChatRequest,
+    user_id: str | None = Depends(get_user_id),
+    device_id: str | None = Depends(get_device_id),
+):
     return StreamingResponse(
-        _sse_chat(body, user_id=user_id),
+        _sse_chat(body, user_id=user_id, device_id=device_id),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

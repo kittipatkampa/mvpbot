@@ -198,7 +198,7 @@ async def test_chat_passes_langfuse_callbacks_to_graph(
     mock_handler = MagicMock()
     monkeypatch.setattr(
         "assistant_service.main.get_langfuse_handler",
-        lambda session_id=None, user_id=None, model_metadata=None: (mock_handler, {"langfuse_session_id": session_id}),
+        lambda session_id=None, user_id=None, device_id=None, model_metadata=None: (mock_handler, {"langfuse_session_id": session_id}),
     )
 
     tid = await db.create_thread()
@@ -234,7 +234,7 @@ async def test_chat_omits_callbacks_when_langfuse_not_configured(
     monkeypatch.setattr(settings, "openrouter_api_key", "test-key")
     monkeypatch.setattr(
         "assistant_service.main.get_langfuse_handler",
-        lambda session_id=None, user_id=None, model_metadata=None: (None, {}),
+        lambda session_id=None, user_id=None, device_id=None, model_metadata=None: (None, {}),
     )
 
     tid = await db.create_thread()
