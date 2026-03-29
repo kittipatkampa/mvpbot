@@ -263,15 +263,17 @@ async def _sse_chat(body: ChatRequest, user_id: str | None = None, device_id: st
                             full_reasoning += delta
                             yield f"data: {json.dumps({'type': 'reasoning', 'content': delta})}\n\n"
 
-        reasoning_to_store = full_reasoning.strip() or None
-        logger.debug(
-            "Stream complete thread_id=%s text_chars=%d reasoning_chars=%d",
-            body.thread_id,
-            len(full_text),
-            len(full_reasoning),
-        )
-        if reasoning_to_store:
-            set_span_attribute("reasoning", reasoning_to_store)
+            reasoning_to_store = full_reasoning.strip() or None
+            logger.debug(
+                "Stream complete thread_id=%s text_chars=%d reasoning_chars=%d",
+                body.thread_id,
+                len(full_text),
+                len(full_reasoning),
+            )
+            # Set reasoning on the span while it is still open
+            if reasoning_to_store:
+                set_span_attribute("reasoning", reasoning_to_store)
+
         await db.add_message(
             body.thread_id,
             "assistant",
