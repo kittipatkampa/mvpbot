@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
@@ -10,6 +11,8 @@ import aiosqlite
 
 from assistant_service.config import settings
 
+logger = logging.getLogger(__name__)
+
 
 def _utc_now() -> str:
     return datetime.now(UTC).isoformat()
@@ -17,6 +20,7 @@ def _utc_now() -> str:
 
 async def init_db(db_path: Path | None = None) -> None:
     path = db_path or settings.assistant_db_path
+    logger.debug("init_db: path=%s", path)
     path.parent.mkdir(parents=True, exist_ok=True)
     async with aiosqlite.connect(path) as db:
         await db.execute(
@@ -63,6 +67,7 @@ async def create_thread(
             (tid, title, now, now),
         )
         await db.commit()
+    logger.debug("create_thread: thread_id=%s title=%r", tid, title)
     return tid
 
 
@@ -185,6 +190,13 @@ async def add_message(
             (now, thread_id),
         )
         await db.commit()
+    logger.debug(
+        "add_message: thread_id=%s role=%s content_chars=%d has_reasoning=%s",
+        thread_id,
+        role,
+        len(content),
+        reasoning is not None,
+    )
     return mid
 
 
@@ -203,6 +215,7 @@ async def delete_last_assistant_message(thread_id: str, db_path: Path | None = N
         )
         row = await cur.fetchone()
         if not row:
+            logger.debug("delete_last_assistant_message: no assistant message found thread_id=%s", thread_id)
             return False
         mid = row["id"]
         await db.execute("DELETE FROM messages WHERE id = ?", (mid,))
@@ -211,6 +224,7 @@ async def delete_last_assistant_message(thread_id: str, db_path: Path | None = N
             (_utc_now(), thread_id),
         )
         await db.commit()
+    logger.debug("delete_last_assistant_message: deleted message_id=%s thread_id=%s", mid, thread_id)
     return True
 
 
