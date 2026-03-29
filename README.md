@@ -19,9 +19,9 @@ Demo AI assistant: **LangGraph** intent routing + **FastAPI** SSE backend, and a
 flowchart LR
   UI[Next.js assistant-ui] -->|SSE POST /api/chat| API[FastAPI]
   API --> LG[LangGraph]
-  LG --> C[Haiku classifier]
-  C -->|math| M[Sonnet math agent]
-  C -->|general| G[Sonnet general agent]
+  LG --> C[Intent classifier]
+  C -->|math| M[Math agent]
+  C -->|general| G[General agent]
   API --> DB[(SQLite)]
 ```
 
