@@ -1,5 +1,18 @@
 # mvpbot
 
+This repo exists for **experimentation**. Rather than starting from scratch every time you want to try something new, you can branch off a working baseline and focus on what you actually want to explore — saving hours of boilerplate setup.
+
+The boilerplate here is built around two deliberate choices:
+
+- **[LangGraph](https://langchain-ai.github.io/langgraph/)** as the orchestration layer — flexible graph-based agent workflows that scale from simple routing to complex multi-agent systems.
+- **[assistant-ui](https://www.assistant-ui.com/)** as the frontend — a high-quality, flexible React component library purpose-built for AI chat interfaces.
+
+At the moment, you can experiment with **LLM observability**: each `example/*` branch drops in a different tracing tool ([Langfuse](https://langfuse.com), [Arize Phoenix](https://phoenix.arize.com), [Logfire](https://logfire.pydantic.dev)) with a single commit, so you can compare them side-by-side without any noise. See the [LLM Observability](#llm-observability) section for details.
+
+Contributions of new experiment branches are very welcome!
+
+---
+
 Demo AI assistant: **LangGraph** intent routing + **FastAPI** SSE backend, and a **Next.js** UI built with **assistant-ui** (threads, search, reasoning display).
 
 ```mermaid
