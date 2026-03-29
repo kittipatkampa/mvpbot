@@ -48,9 +48,9 @@ def test_init_logfire_configures_when_token_set(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_chat_span_emits_attributes(capfire: logfire.testing.CaptureLogfire):
-    """chat_span() should emit a span with thread_id, user_id, and device_id attributes."""
+    """chat_span() should emit a span with thread_id, user_id, device_id, and reasoning."""
     import assistant_service.observability as obs
-    from assistant_service.observability import chat_span
+    from assistant_service.observability import chat_span, set_span_attribute
 
     obs._logfire_enabled = True
     try:
@@ -59,16 +59,25 @@ async def test_chat_span_emits_attributes(capfire: logfire.testing.CaptureLogfir
             user_id="user-123",
             device_id="device-xyz",
         ):
-            pass
+            set_span_attribute("reasoning", "I thought about this carefully")
     finally:
         obs._logfire_enabled = False
 
     spans = capfire.exporter.exported_spans
     assert spans, "Expected at least one span"
-    attrs = spans[0].attributes or {}
+    # The pending_span is exported when the span opens; the final closed span
+    # (without 'logfire.span_type' == 'pending_span') carries all attributes
+    # including those set after the span was opened (e.g. reasoning).
+    final_spans = [
+        s for s in spans
+        if s.attributes.get("logfire.span_type") != "pending_span"
+    ]
+    assert final_spans, "Expected a closed span"
+    attrs = final_spans[0].attributes or {}
     assert attrs.get("thread_id") == "thread-abc"
     assert attrs.get("user_id") == "user-123"
     assert attrs.get("device_id") == "device-xyz"
+    assert attrs.get("reasoning") == "I thought about this carefully"
 
 
 @pytest.mark.asyncio

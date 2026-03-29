@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
 import logfire
+from opentelemetry import trace
 
 from assistant_service.config import settings
 
@@ -30,6 +31,20 @@ def init_logfire() -> None:
     _logfire_enabled = True
 
 
+def set_span_attribute(key: str, value: str) -> None:
+    """Set an attribute on the currently active OpenTelemetry span.
+
+    Used to attach dynamic values (e.g. accumulated reasoning text) to the
+    chat span after streaming completes. No-op when Logfire is not configured
+    or there is no active span.
+    """
+    if not _logfire_enabled:
+        return
+    span = trace.get_current_span()
+    if span and span.is_recording():
+        span.set_attribute(key, value)
+
+
 @asynccontextmanager
 async def chat_span(
     thread_id: str,
@@ -42,11 +57,15 @@ async def chat_span(
     so they appear on every trace in the Logfire UI. When Logfire is not
     configured this is a transparent no-op.
 
+    Call ``set_span_attribute()`` from within the context to attach additional
+    attributes (e.g. the accumulated reasoning text) after streaming completes.
+
     Usage::
 
         async with chat_span(thread_id=body.thread_id, user_id=user_id, device_id=device_id):
             async for chunk in graph.astream(...):
                 ...
+            set_span_attribute("reasoning", full_reasoning)
     """
     if not _logfire_enabled:
         yield

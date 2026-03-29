@@ -17,7 +17,7 @@ from assistant_service import db
 from assistant_service.config import settings
 from assistant_service.graph import get_graph
 from assistant_service.logging_config import configure_logging
-from assistant_service.observability import chat_span, init_logfire
+from assistant_service.observability import chat_span, init_logfire, set_span_attribute
 from assistant_service.models import (
     ChatRequest,
     MessageOut,
@@ -47,11 +47,13 @@ def _rows_to_messages(rows: list[dict]) -> list[BaseMessage]:
 
 
 def _extract_blocks(chunk: Any) -> list[dict[str, Any]]:
-    if hasattr(chunk, "content_blocks") and chunk.content_blocks:
-        return list(chunk.content_blocks)
-    # Fallback: plain content string
     c = getattr(chunk, "content", None)
-    if c:
+    if isinstance(c, list):
+        # Content is already a list of typed blocks (thinking, text, etc.).
+        # Using content_blocks here would wrap thinking blocks as 'non_standard',
+        # losing the 'thinking' type and making them invisible to the renderer.
+        return c
+    if isinstance(c, str) and c:
         return [{"type": "text", "text": c}]
     return []
 
@@ -268,6 +270,8 @@ async def _sse_chat(body: ChatRequest, user_id: str | None = None, device_id: st
             len(full_text),
             len(full_reasoning),
         )
+        if reasoning_to_store:
+            set_span_attribute("reasoning", reasoning_to_store)
         await db.add_message(
             body.thread_id,
             "assistant",
