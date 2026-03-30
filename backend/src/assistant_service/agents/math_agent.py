@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import logging
+
 from langchain_openrouter import ChatOpenRouter
 
 from assistant_service.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 def build_math_llm() -> ChatOpenRouter:

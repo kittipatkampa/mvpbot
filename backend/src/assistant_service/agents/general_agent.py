@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+import logging
+
 from assistant_service.config import settings
 from assistant_service.openrouter_llm import ChatOpenRouterWithReasoning
+
+logger = logging.getLogger(__name__)
 
 
 def build_general_llm() -> ChatOpenRouterWithReasoning:

@@ -220,7 +220,7 @@ const AssistantMessage: FC = () => {
             if (part.type === "reasoning")
               return (
                 <ReasoningRoot variant="muted" defaultOpen={false}>
-                  <ReasoningTrigger />
+                  <ReasoningTrigger label={(part as { label?: string }).label ?? "Reasoning"} />
                   <ReasoningContent>
                     <ReasoningText>
                       <MarkdownText />
