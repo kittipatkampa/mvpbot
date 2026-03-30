@@ -4,8 +4,8 @@ Feature backlog for mvpbot.
 
 ## Features
 
-- [ ] Support multi-user signin (branch `feat/multi-user` exists; not merged to main yet)
-- [ ] The bottom of the left menu panel should be about user and settings
+- [x] Support multi-user signin
+- [x] The bottom of the left menu panel should be about user
 
 ## Improvements
 
