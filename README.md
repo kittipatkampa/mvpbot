@@ -91,10 +91,18 @@ Base URL: `http://localhost:8000` (set `NEXT_PUBLIC_API_URL` in the frontend).
 
 Each line is `data: <json>`:
 
-- `{"type": "reasoning", "content": "..."}` — extended thinking token (Anthropic → LangChain `reasoning` blocks)
+- `{"type": "reasoning", "content": "...", "label": "..."}` — a reasoning/thinking block; `label` controls the collapsible section heading in the UI (e.g. `"Query intent"`, `"Reasoning"`). Multiple labeled sections can appear per response — the frontend groups tokens by label.
 - `{"type": "token", "content": "..."}` — assistant answer text
 - `{"type": "done"}` — stream finished
 - `{"type": "error", "message": "..."}` — error
+
+#### Controlling reasoning labels (backend)
+
+The `label` field on `reasoning` events is set in `_sse_chat()` in [`backend/src/assistant_service/main.py`](backend/src/assistant_service/main.py). To change or add labels:
+
+- **Intent classification result** — emitted once before the main agent streams, with `label: "Query intent"`. Change the string literal in the `yield` call after `classify_intent_text()` to rename it.
+- **Main agent thinking** — emitted for every `reasoning`/`thinking` block from the LLM, with `label: "Reasoning"`. Change the string literal in the two `yield` calls inside the `astream` loop.
+- **New labeled section** — `yield` any additional `{"type": "reasoning", "content": "...", "label": "My label"}` event at any point in `_sse_chat()`. The frontend will render it as a separate collapsible block with that heading.
 
 ## Behavior
 
