@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
@@ -256,3 +257,51 @@ async def test_chat_omits_callbacks_when_langfuse_not_configured(
     assert fake.last_config is not None
     callbacks = fake.last_config.get("callbacks", [])
     assert callbacks == [], f"Expected empty callbacks, got {callbacks}"
+
+
+@pytest.mark.asyncio
+async def test_anonymous_user_created_on_first_request(
+    client: AsyncClient, db_path: Path
+):
+    device_id = "test-device-xyz-123"
+    r = await client.post("/api/threads", headers={"X-Device-ID": device_id})
+    assert r.status_code == 200
+
+    # User row should now exist with the given device_id
+    user_id = await db.get_or_create_user(device_id, db_path=db_path)
+    assert user_id is not None
+
+
+@pytest.mark.asyncio
+async def test_threads_scoped_by_device_id(client: AsyncClient):
+    device_a = {"X-Device-ID": "device-aaa"}
+    device_b = {"X-Device-ID": "device-bbb"}
+
+    # Create thread as device A
+    r = await client.post("/api/threads", headers=device_a)
+    assert r.status_code == 200
+    tid_a = r.json()["thread_id"]
+
+    # Device B should not see device A's thread
+    r = await client.get("/api/threads", headers=device_b)
+    assert r.status_code == 200
+    ids = [t["id"] for t in r.json()]
+    assert tid_a not in ids
+
+    # Device A can see its own thread
+    r = await client.get("/api/threads", headers=device_a)
+    assert r.status_code == 200
+    ids = [t["id"] for t in r.json()]
+    assert tid_a in ids
+
+    # Device B cannot GET/PATCH/DELETE device A's thread
+    r = await client.get(f"/api/threads/{tid_a}", headers=device_b)
+    assert r.status_code == 404
+
+    r = await client.patch(
+        f"/api/threads/{tid_a}", json={"title": "hack"}, headers=device_b
+    )
+    assert r.status_code == 404
+
+    r = await client.delete(f"/api/threads/{tid_a}", headers=device_b)
+    assert r.status_code == 404
