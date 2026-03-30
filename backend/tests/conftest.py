@@ -21,7 +21,7 @@ def db_path(tmp_path: Path) -> Path:
 @pytest_asyncio.fixture
 async def test_settings(db_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(settings, "assistant_db_path", db_path)
-    monkeypatch.setattr(settings, "anthropic_api_key", "")
+    monkeypatch.setattr(settings, "openrouter_api_key", "")
     await db.init_db(db_path)
     yield
 

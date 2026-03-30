@@ -1,11 +1,11 @@
-"""Intent classifier using Claude Haiku + structured output."""
+"""Intent classifier using structured output."""
 
 from __future__ import annotations
 
 import logging
 from typing import Literal
 
-from langchain_anthropic import ChatAnthropic
+from langchain_openrouter import ChatOpenRouter
 from pydantic import BaseModel, Field
 
 from assistant_service.config import settings
@@ -19,11 +19,11 @@ class IntentClassification(BaseModel):
     )
 
 
-def build_classifier_llm() -> ChatAnthropic:
-    return ChatAnthropic(
+def build_classifier_llm() -> ChatOpenRouter:
+    return ChatOpenRouter(
         model=settings.classifier_model,
         max_tokens=settings.classifier_max_tokens,
-        api_key=settings.anthropic_api_key or None,
+        api_key=settings.openrouter_api_key or None,
     )
 
 

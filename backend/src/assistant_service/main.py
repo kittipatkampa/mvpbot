@@ -52,11 +52,19 @@ def _rows_to_messages(rows: list[dict]) -> list[BaseMessage]:
 def _extract_blocks(chunk: Any) -> list[dict[str, Any]]:
     if hasattr(chunk, "content_blocks") and chunk.content_blocks:
         return list(chunk.content_blocks)
-    # Fallback: plain content string
+
+    blocks: list[dict[str, Any]] = []
+
+    # OpenRouter surfaces reasoning in additional_kwargs["reasoning_content"]
+    reasoning = (getattr(chunk, "additional_kwargs", None) or {}).get("reasoning_content")
+    if reasoning:
+        blocks.append({"type": "reasoning", "reasoning": reasoning})
+
     c = getattr(chunk, "content", None)
     if c:
-        return [{"type": "text", "text": c}]
-    return []
+        blocks.append({"type": "text", "text": c})
+
+    return blocks
 
 
 @asynccontextmanager
@@ -192,9 +200,9 @@ async def _sse_chat(body: ChatRequest, user_id: str | None = None):
         user_id,
     )
 
-    if not settings.anthropic_api_key:
-        logger.error("ANTHROPIC_API_KEY is not set")
-        yield f"data: {json.dumps({'type': 'error', 'message': 'ANTHROPIC_API_KEY is not set'})}\n\n"
+    if not settings.openrouter_api_key:
+        logger.error("OPENROUTER_API_KEY is not set")
+        yield f"data: {json.dumps({'type': 'error', 'message': 'OPENROUTER_API_KEY is not set'})}\n\n"
         return
 
     if not await db.thread_exists(body.thread_id, user_id=user_id):
@@ -257,6 +265,16 @@ async def _sse_chat(body: ChatRequest, user_id: str | None = None):
             {"messages": lc_messages, "intent": ""},
             stream_mode="messages",
         ):
+            _reasoning_preview = (
+                (getattr(msg_chunk, "additional_kwargs", None) or {}).get("reasoning_content") or ""
+            )[:60]
+            logger.debug(
+                "chunk node=%s content=%r blocks=%s reasoning=%r",
+                _metadata.get("langgraph_node"),
+                getattr(msg_chunk, "content", "")[:60],
+                [b.get("type") for b in _extract_blocks(msg_chunk)],
+                _reasoning_preview,
+            )
             for block in _extract_blocks(msg_chunk):
                 btype = block.get("type")
                 if btype == "reasoning":

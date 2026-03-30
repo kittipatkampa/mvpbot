@@ -8,7 +8,7 @@ from assistant_service.agents.classifier import IntentClassification, classify_i
 
 
 @patch("assistant_service.agents.classifier.build_classifier_llm")
-def test_classify_intent_mocked(mock_build):
+def test_classify_intent_mocked(mock_build: MagicMock):
     mock_llm = MagicMock()
     structured = MagicMock()
     structured.invoke.return_value = IntentClassification(intent="math")
@@ -19,7 +19,7 @@ def test_classify_intent_mocked(mock_build):
 
 
 @patch("assistant_service.agents.classifier.build_classifier_llm")
-def test_classify_general_mocked(mock_build):
+def test_classify_general_mocked(mock_build: MagicMock):
     mock_llm = MagicMock()
     structured = MagicMock()
     structured.invoke.return_value = IntentClassification(intent="general")
