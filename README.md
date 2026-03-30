@@ -104,6 +104,26 @@ The `label` field on `reasoning` events is set in `_sse_chat()` in [`backend/src
 - **Main agent thinking** — emitted for every `reasoning`/`thinking` block from the LLM, with `label: "Reasoning"`. Change the string literal in the two `yield` calls inside the `astream` loop.
 - **New labeled section** — `yield` any additional `{"type": "reasoning", "content": "...", "label": "My label"}` event at any point in `_sse_chat()`. The frontend will render it as a separate collapsible block with that heading.
 
+## Magic queries
+
+Certain exact strings trigger special canned responses without calling the LLM:
+
+| Query | What it does |
+|-------|-------------|
+| `demo!` | Streams a rich display showcase: multiple labeled reasoning sections, headings, lists, tables, code blocks, math (KaTeX), emojis, and links — no API key needed. |
+
+To customise the `demo!` response, edit `DEMO_PARTS` in [`backend/src/assistant_service/demo_response.py`](backend/src/assistant_service/demo_response.py). Each entry in the list is one streamed part:
+
+```python
+{
+    "type": "reasoning",   # or "text"
+    "label": "My label",   # reasoning only — sets the collapsible heading
+    "content": "...",      # full markdown string, streamed token-by-token
+}
+```
+
+To add a new magic query, intercept it in `_sse_chat()` in [`backend/src/assistant_service/main.py`](backend/src/assistant_service/main.py) before the classifier call, following the same pattern as the `demo!` check.
+
 ## Behavior
 
 1. **Classifier** (`claude-haiku-4-5`) picks `math` vs `general` (see [Anthropic models](https://docs.anthropic.com/en/docs/about-claude/models/overview)).

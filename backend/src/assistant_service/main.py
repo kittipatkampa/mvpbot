@@ -17,6 +17,7 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 from assistant_service import db
 from assistant_service.agents.classifier import classify_intent_text
 from assistant_service.config import settings
+from assistant_service.demo_response import stream_demo
 from assistant_service.graph import get_graph
 from assistant_service.logging_config import configure_logging
 from assistant_service.models import (
@@ -218,6 +219,14 @@ async def _sse_chat(body: ChatRequest, user_id: str | None = None):
             rows[-1]["role"],
         )
         yield f"data: {json.dumps({'type': 'error', 'message': 'Last message must be from user to run the model'})}\n\n"
+        return
+
+    # Magic query: stream the canned demo response without calling the LLM.
+    # Edit demo_response.py to customise what the demo shows.
+    if rows[-1]["content"].strip() == "demo!":
+        logger.info("Demo magic query detected thread_id=%s", body.thread_id)
+        async for event in stream_demo():
+            yield event
         return
 
     lc_messages = _rows_to_messages(rows)
