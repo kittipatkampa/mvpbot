@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import sqlite3
@@ -14,7 +15,9 @@ from fastapi.responses import StreamingResponse
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 
 from assistant_service import db
+from assistant_service.agents.classifier import classify_intent_text
 from assistant_service.config import settings
+from assistant_service.demo_response import stream_demo
 from assistant_service.graph import get_graph
 from assistant_service.logging_config import configure_logging
 from assistant_service.observability import get_langfuse_handler, init_langfuse
@@ -230,8 +233,29 @@ async def _sse_chat(body: ChatRequest, user_id: str | None = None, device_id: st
         yield f"data: {json.dumps({'type': 'error', 'message': 'Last message must be from user to run the model'})}\n\n"
         return
 
+    # Magic query: stream the canned demo response without calling the LLM.
+    # Edit demo_response.py to customise what the demo shows.
+    if rows[-1]["content"].strip() == "demo!":
+        logger.info("Demo magic query detected thread_id=%s", body.thread_id)
+        async for event in stream_demo():
+            yield event
+        return
+
     lc_messages = _rows_to_messages(rows)
     logger.debug("Loaded %d message(s) for graph thread_id=%s", len(lc_messages), body.thread_id)
+
+    # Classify intent upfront and emit as a labeled reasoning event.
+    # The "label" value controls the collapsible section heading in the UI.
+    # Change "Query intent" below to rename that section.
+    last_user_text = rows[-1]["content"] or ""
+    try:
+        intent_result = await asyncio.to_thread(classify_intent_text, last_user_text)
+        intent = intent_result.intent
+        logger.info("Pre-classification intent=%s thread_id=%s", intent, body.thread_id)
+        yield f"data: {json.dumps({'type': 'reasoning', 'content': f'Intent: {intent}', 'label': 'Query intent'})}\n\n"
+    except Exception as e:
+        logger.warning("Pre-classification failed, defaulting to general: %s", e)
+        intent = "general"
 
     graph = get_graph()
     full_reasoning = ""
@@ -262,7 +286,8 @@ async def _sse_chat(body: ChatRequest, user_id: str | None = None, device_id: st
                     delta = block.get("reasoning") or ""
                     if delta:
                         full_reasoning += delta
-                        yield f"data: {json.dumps({'type': 'reasoning', 'content': delta})}\n\n"
+                        # Change "Reasoning" below to rename the main agent thinking section.
+                        yield f"data: {json.dumps({'type': 'reasoning', 'content': delta, 'label': 'Reasoning'})}\n\n"
                 elif btype == "text":
                     delta = block.get("text") or ""
                     if delta:
@@ -272,7 +297,8 @@ async def _sse_chat(body: ChatRequest, user_id: str | None = None, device_id: st
                     delta = block.get("thinking") or ""
                     if delta:
                         full_reasoning += delta
-                        yield f"data: {json.dumps({'type': 'reasoning', 'content': delta})}\n\n"
+                        # Change "Reasoning" below to rename the main agent thinking section.
+                        yield f"data: {json.dumps({'type': 'reasoning', 'content': delta, 'label': 'Reasoning'})}\n\n"
 
         reasoning_to_store = full_reasoning.strip() or None
         logger.debug(

@@ -152,12 +152,16 @@ export function useFastAPIThreadRuntime() {
         if (!res.ok) {
           throw new Error(`Chat failed: ${res.status}`);
         }
-        let reasoning = "";
+        const reasoningParts: { label: string; text: string }[] = [];
         let answer = "";
         for await (const ev of parseSSE(res.body)) {
           const type = ev.type as string | undefined;
           if (type === "reasoning") {
-            reasoning += String((ev as { content?: string }).content ?? "");
+            const label = String((ev as { label?: string }).label ?? "Reasoning");
+            const content = String((ev as { content?: string }).content ?? "");
+            const existing = reasoningParts.find((p) => p.label === label);
+            if (existing) existing.text += content;
+            else reasoningParts.push({ label, text: content });
           } else if (type === "token") {
             answer += String((ev as { content?: string }).content ?? "");
           } else if (type === "error") {
@@ -169,9 +173,10 @@ export function useFastAPIThreadRuntime() {
             const next = [...prev];
             const last = next[next.length - 1];
             if (last?.role === "assistant" && last.id === assistantId) {
-              const parts: { type: "reasoning" | "text"; text: string }[] = [];
-              if (reasoning) parts.push({ type: "reasoning", text: reasoning });
-              parts.push({ type: "text", text: answer });
+              const parts: { type: "reasoning" | "text"; text: string; label?: string }[] = [
+                ...reasoningParts.map((r) => ({ type: "reasoning" as const, text: r.text, label: r.label })),
+                { type: "text" as const, text: answer },
+              ];
               next[next.length - 1] = {
                 ...last,
                 content: parts,
@@ -256,10 +261,7 @@ export function useFastAPIThreadRuntime() {
       userLike,
       {
         role: "assistant",
-        content: [
-          { type: "reasoning", text: "" },
-          { type: "text", text: "" },
-        ],
+        content: [{ type: "text", text: "" }],
         id: assistantId,
       },
     ]);
@@ -302,10 +304,7 @@ export function useFastAPIThreadRuntime() {
         ...base,
         {
           role: "assistant",
-          content: [
-            { type: "reasoning", text: "" },
-            { type: "text", text: "" },
-          ],
+          content: [{ type: "text", text: "" }],
           id: assistantId,
         },
       ]);
