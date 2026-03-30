@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/sidebar";
 import { ThreadList } from "@/components/assistant-ui/thread-list";
 import { Input } from "@/components/ui/input";
+import { UserSwitcher } from "@/components/assistant-ui/user-switcher";
 
 export function ThreadListSidebar({
   search = "",
@@ -65,6 +66,9 @@ export function ThreadListSidebar({
       <SidebarRail />
       <SidebarFooter className="aui-sidebar-footer border-t">
         <SidebarMenu>
+          <SidebarMenuItem>
+            <UserSwitcher />
+          </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
               <Link

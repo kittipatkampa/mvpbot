@@ -1,14 +1,27 @@
 # mvpbot
 
+This repo exists for **experimentation**. Rather than starting from scratch every time you want to try something new, you can branch off a working baseline and focus on what you actually want to explore — saving hours of boilerplate setup.
+
+The boilerplate here is built around two deliberate choices:
+
+- **[LangGraph](https://langchain-ai.github.io/langgraph/)** as the orchestration layer — flexible graph-based agent workflows that scale from simple routing to complex multi-agent systems.
+- **[assistant-ui](https://www.assistant-ui.com/)** as the frontend — a high-quality, flexible React component library purpose-built for AI chat interfaces.
+
+At the moment, you can experiment with **LLM observability**: each `example/*` branch drops in a different tracing tool ([Langfuse](https://langfuse.com), [Arize Phoenix](https://phoenix.arize.com), [Logfire](https://logfire.pydantic.dev)) with a single commit, so you can compare them side-by-side without any noise. See the [LLM Observability](#llm-observability) section for details.
+
+Contributions of new experiment branches are very welcome!
+
+---
+
 Demo AI assistant: **LangGraph** intent routing + **FastAPI** SSE backend, and a **Next.js** UI built with **assistant-ui** (threads, search, reasoning display).
 
 ```mermaid
 flowchart LR
   UI[Next.js assistant-ui] -->|SSE POST /api/chat| API[FastAPI]
   API --> LG[LangGraph]
-  LG --> C[Haiku classifier]
-  C -->|math| M[Sonnet math agent]
-  C -->|general| G[Sonnet general agent]
+  LG --> C[Intent classifier]
+  C -->|math| M[Math agent]
+  C -->|general| G[General agent]
   API --> DB[(SQLite)]
 ```
 
@@ -78,7 +91,7 @@ Base URL: `http://localhost:8000` (set `NEXT_PUBLIC_API_URL` in the frontend).
 
 Each line is `data: <json>`:
 
-- `{"type": "reasoning", "content": "..."}` — extended thinking token (Anthropic → LangChain `reasoning` blocks)
+- `{"type": "reasoning", "content": "...", "label": "..."}` — a reasoning/thinking block; `label` controls the collapsible section heading in the UI (e.g. `"Query intent"`, `"Reasoning"`). Multiple labeled sections can appear per response — the frontend groups tokens by label.
 - `{"type": "token", "content": "..."}` — assistant answer text
 - `{"type": "done"}` — stream finished
 - `{"type": "error", "message": "..."}` — error
@@ -150,6 +163,34 @@ After the script finishes, open your Phoenix project — you should see a new tr
 ### Disabling tracing
 
 Leave `PHOENIX_COLLECTOR_ENDPOINT` unset (or empty) in `.env`. `init_phoenix()` returns immediately without registering any provider.
+
+#### Controlling reasoning labels (backend)
+
+The `label` field on `reasoning` events is set in `_sse_chat()` in [`backend/src/assistant_service/main.py`](backend/src/assistant_service/main.py). To change or add labels:
+
+- **Intent classification result** — emitted once before the main agent streams, with `label: "Query intent"`. Change the string literal in the `yield` call after `classify_intent_text()` to rename it.
+- **Main agent thinking** — emitted for every `reasoning`/`thinking` block from the LLM, with `label: "Reasoning"`. Change the string literal in the two `yield` calls inside the `astream` loop.
+- **New labeled section** — `yield` any additional `{"type": "reasoning", "content": "...", "label": "My label"}` event at any point in `_sse_chat()`. The frontend will render it as a separate collapsible block with that heading.
+
+## Magic queries
+
+Certain exact strings trigger special canned responses without calling the LLM:
+
+| Query | What it does |
+|-------|-------------|
+| `demo!` | Streams a rich display showcase: multiple labeled reasoning sections, headings, lists, tables, code blocks, math (KaTeX), emojis, and links — no API key needed. |
+
+To customise the `demo!` response, edit `DEMO_PARTS` in [`backend/src/assistant_service/demo_response.py`](backend/src/assistant_service/demo_response.py). Each entry in the list is one streamed part:
+
+```python
+{
+    "type": "reasoning",   # or "text"
+    "label": "My label",   # reasoning only — sets the collapsible heading
+    "content": "...",      # full markdown string, streamed token-by-token
+}
+```
+
+To add a new magic query, intercept it in `_sse_chat()` in [`backend/src/assistant_service/main.py`](backend/src/assistant_service/main.py) before the classifier call, following the same pattern as the `demo!` check.
 
 ## Behavior
 
